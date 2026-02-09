@@ -1,10 +1,27 @@
 from necessary_functions import *
 
 def compute_distribution(ii, kstretch, kb1, kb2, kbendstd, nrandos, end, leng):
+    """Compute Raman spectral activities for a random subset of water molecules.
 
-    hprojs = np.load('/../amoeba_pair_fields.npy', allow_pickle=True)  # Fields experienced by Hs
-    interface_dis = np.load('/../Odisses.npy', allow_pickle=True) # Distance to WCI
-    oilangles  = np.load('/../amoeba_angles.npy', allow_pickle=True)  # Hydrogen bonding angles
+    Loads MD snapshot data, selects water molecules within a distance slab from
+    the water-CCl4 interface, solves the anharmonic vibrational Schrodinger
+    equation on a 3D grid, and computes Raman transition polarizabilities.
+
+    Parameters:
+        ii: Snapshot index into the loaded trajectory data.
+        kstretch: Stretch-field coupling constant.
+        kb1, kb2: Linear and quadratic bending-field coupling constants.
+        kbendstd: Std dev of Gaussian multipliers applied to bending constants.
+        nrandos: Number of water molecules to randomly sample.
+        end: Lower bound of distance slab from the interface (angstroms).
+        leng: Width of the distance slab (angstroms).
+
+    Returns:
+        0 on completion. Results saved to .npy files (qfreqs, activities, etc.).
+    """
+    hprojs = np.load('amoeba_pair_fields.npy', allow_pickle=True)  # Fields experienced by Hs
+    interface_dis = np.load('Odisses.npy', allow_pickle=True) # Distance to WCI
+    oilangles  = np.load('amoeba_angles.npy', allow_pickle=True)  # Hydrogen bonding angles
 
 
     Oposes = oilangles[ii][:,0]  # Zposition of oxygens
@@ -16,15 +33,11 @@ def compute_distribution(ii, kstretch, kb1, kb2, kbendstd, nrandos, end, leng):
     angles = angles[Oposes > 0]
 
     lenf = len(projs)
-    print(len(alli), len(projs), len(angles), len(interface_dis)) 
     randos = np.argsort(np.random.uniform(0, 1, lenf))[:nrandos] # Random subset
     alli = alli[randos]
     projs = projs[randos]
     angles = angles[randos]
 
-    print(len(alli), len(projs))
-
-       
     bound = 90
 
     cond =  (alli > end) *  (alli < end + leng) # only getting waters within a certain distance from the WCI
@@ -53,7 +66,7 @@ def compute_distribution(ii, kstretch, kb1, kb2, kbendstd, nrandos, end, leng):
     mul3 = 100
 
     fields = np.copy(projs)
-    bendfields = np.copy(projs) #Identifical to fields
+    bendfields = np.copy(projs) #Identical to fields
     muls = np.random.normal(1.0, kbendstd, nrandos)  # multipliers for bending energy
     np.save('muls', muls) 
     np.save('used', randos)
@@ -62,7 +75,6 @@ def compute_distribution(ii, kstretch, kb1, kb2, kbendstd, nrandos, end, leng):
     harvecs = []
     minposes = []
     mfields = []
-    print("here 1")
 
     for i,field in enumerate(fields):
         g = eigenvalues(field, kstretch, kb1*muls[i], kb2*muls[i], bendfields[i])
@@ -72,9 +84,6 @@ def compute_distribution(ii, kstretch, kb1, kb2, kbendstd, nrandos, end, leng):
             harvecs.append(g[2])
             minposes.append(g[3])
             mfields.append([field, bendfields[i]])
-            print(i)
-        else:
-            print("fail here", g[2])
    
     eig_contain = np.asarray(eig_contain)   
     np.save("harvecs", harvecs)
@@ -88,7 +97,6 @@ def compute_distribution(ii, kstretch, kb1, kb2, kbendstd, nrandos, end, leng):
     xmax = basis0 + basisL/2
     xx = np.linspace(xmin, xmax, 20)
     stepsize = xx[1] - xx[0]
-    print(stepsize)
     vol = (basisL + stepsize)**3
     xxgrid = np.array([np.repeat(xx, len(xx)**2),
                        np.repeat(xx.tolist()*len(xx), len(xx)),
@@ -98,8 +106,11 @@ def compute_distribution(ii, kstretch, kb1, kb2, kbendstd, nrandos, end, leng):
     vecadds = []
     egrids = []
     polgrids = []
+    dipgrids = []
+
     t =time()
     sleep(10)
+
     def fill_grids(j):
         vectors = harvecs[j]
         poses = minposes[j] 
@@ -147,14 +158,19 @@ def compute_distribution(ii, kstretch, kb1, kb2, kbendstd, nrandos, end, leng):
         cgrid = extract_coordinates(posgrid)
         egrid = fastonebody(cgrid, field1, field2, bendfield1, bendfield2, kstretch, kb1*mul, kb2*mul)
         polgrid = []
+        dipgrid = []
+
         for pos in posgrid:
+#            print(pos)
             pol = onepol(pos)
             polgrid.append(pol)
+            dip = onedip(pos)
+            dipgrid.append(dip)
             
     #    print(j)
     #    print(time()-t)
 
-        return egrid, polgrid, umasses
+        return egrid, polgrid, dipgrid, umasses
 
     grids = Parallel(n_jobs=processors, verbose=10)(delayed(fill_grids)(i) for i in range(len(harvecs[:])))
     sleep(20)
@@ -162,7 +178,8 @@ def compute_distribution(ii, kstretch, kb1, kb2, kbendstd, nrandos, end, leng):
     for i in range(len(grids)):
         egrids.append(grids[i][0])
         polgrids.append(grids[i][1])
-        allumasses.append(grids[i][2])
+        dipgrids.append(grids[i][2])
+        allumasses.append(grids[i][3])
 
     psis = []
     d2d2xs = []
@@ -197,7 +214,6 @@ def compute_distribution(ii, kstretch, kb1, kb2, kbendstd, nrandos, end, leng):
     d2d2zs = np.asarray(d2d2zs)
 
 
-    print(len(psis))
     vol = (basisL + stepsize)**3
 
     def compute_hamiltonians(kt):
@@ -232,30 +248,11 @@ def compute_distribution(ii, kstretch, kb1, kb2, kbendstd, nrandos, end, leng):
 
     reseigs = []
     resvecs = []
-    print(len(ematrices))
     for i in range(len(egrids)):
         ees = ematrices[i]
         eigs, vecs = np.linalg.eigh(ees)
         reseigs.append(eigs)
         resvecs.append(vecs)
-        gap = eigs[1] - eigs[0]
-        wavenumber = gap*8065.544
-        print(mfields[i])
-        print(wavenumber)
-
-        gap = eigs[2] - eigs[0]
-        wavenumber = gap*8065.544
-        print(wavenumber)
-        gap = eigs[3] - eigs[0]
-        wavenumber = gap*8065.544
-        print(wavenumber)
-
-        gap = eigs[4] - eigs[0]
-        wavenumber = gap*8065.544
-        print(wavenumber)
-        print(len(eigs))
-        print(len(psis))
-        print(i)
 
     reseigs = np.asarray(reseigs)
     resvecs = np.asarray(resvecs)
@@ -275,8 +272,11 @@ def compute_distribution(ii, kstretch, kb1, kb2, kbendstd, nrandos, end, leng):
 
     for it,vecs in enumerate(resvecs):
         polgrid = np.asarray(polgrids[it])
+        dipgrid = np.asarray(dipgrids[it])
+#        print(polgrid.shape)
+#        print("dip", dipgrid.shape)
         psi0 = np.sum(psis.T*vecs[:,0], axis=1).T
-        activity = [[],[]]
+        activity = [[],[],[]]
         for i in range(4):
             psij = np.sum(psis.T*vecs[:,i+1], axis=1).T
             pol1 = np.average(polgrid.T*psi0*psij, axis=2).T*vol
@@ -287,10 +287,12 @@ def compute_distribution(ii, kstretch, kb1, kb2, kbendstd, nrandos, end, leng):
             anti = np.sum(np.diag(np.matmul(beta, beta)))
             activity[0].append(sym)
             activity[1].append(anti)
-            
+            dip1 = np.average(dipgrid.T*psi0*psij, axis=1).T*vol
+            #print(dip1.shape)
+            dip1 = np.sum(dip1**2)
+            activity[2].append(dip1)
+#        print('activity', activity)  
         activities.append(np.concatenate(activity))
-
-        print(it)
 
     activities = np.array(activities)
     np.save('activities.npy', activities)

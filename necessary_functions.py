@@ -14,7 +14,14 @@ poly = PolynomialFeatures(12)
 pre = lambda x: krr.predict(poly.fit_transform(x))
 
 def onebody(p):
-    p = p
+    """Predict the one-body potential energy for a single water molecule.
+
+    Parameters:
+        p: (3, 3) array of atomic positions [O, H1, H2].
+
+    Returns:
+        Predicted energy from the KRR model (scalar).
+    """
     d1 = p[1] - p[0]
     d2 = p[2] - p[0]
     stretch1 = np.linalg.norm(d1)
@@ -27,6 +34,18 @@ def onebody(p):
 
 
 def fastonebody(array, field1, field2, bendfield1, bendfield2, kstretch, kb1, kb2):
+    """Vectorized one-body energy with electric field perturbations.
+
+    Parameters:
+        array: (N, 3) array of [stretch1, stretch2, angle] for each geometry.
+        field1, field2: Electric field projections along each OH bond.
+        bendfield1, bendfield2: Electric field components for bending.
+        kstretch: Stretch-field coupling constant.
+        kb1, kb2: Linear and quadratic bending-field coupling constants.
+
+    Returns:
+        (N,) array of perturbed one-body energies.
+    """
     inputs = ((array - shifts) / shifts).astype('float64')
 #    print(field1, bendfield1)
     fieldenergy = (-kstretch*(array[:,0]*field1 + array[:,1]*field2) +  -kstretch*((array[:,0] - 0.958929)**2*field1 + (array[:,1] - 0.958929)**2*field2)*0.79/0.37/2
@@ -36,6 +55,16 @@ def fastonebody(array, field1, field2, bendfield1, bendfield2, kstretch, kb1, kb
 krrpol = load('polarizability_krr.joblib')
 
 def prepol(x):
+    """Predict polarizability tensor elements in the molecular frame.
+
+    Sorts stretch distances in descending order before prediction.
+
+    Parameters:
+        x: (N, 3) array of [stretch1, stretch2, angle].
+
+    Returns:
+        Predicted polarizability tensor elements from the KRR model.
+    """
     x[:,:2] = np.flip(np.sort(x[:,:2], axis=1), axis=1)
     return krrpol.predict(polypol.fit_transform(x))
 
@@ -43,6 +72,17 @@ polypol = PolynomialFeatures(5)
 
 
 def onepol(p):
+    """Compute the lab-frame polarizability tensor for a single water molecule.
+
+    Rotates the molecule into a canonical orientation, predicts the
+    polarizability in the molecular frame, then rotates back to the lab frame.
+
+    Parameters:
+        p: (3, 3) array of atomic positions [O, H1, H2].
+
+    Returns:
+        (3, 3) polarizability tensor in the lab frame.
+    """
     vec_aim = np.array([1.0, 0, 0])
     d1 = p[1] - p[0]
     d2 = p[2] - p[0]
@@ -52,7 +92,6 @@ def onepol(p):
     npos = np.array([[0, 0, 0], d1, d2])         
     cross = np.cross(d1, d2)
     cross = cross / np.linalg.norm(cross)
-
    
     
     add = np.array([0, 0, 1])
@@ -96,7 +135,7 @@ def onepol(p):
     
     pr = np.sum(npos[1]*npos[2])/s1/s2
     angle = np.arccos(np.round(pr, 8))*180/np.pi
-
+#    print('pold1', s1, 'd2', s2, 'd3', angle)
     inarray = (np.array([[s1, s2, angle]]))# - shifts)/shifts
     
     perpol =  prepol(inarray)[0]
@@ -108,17 +147,66 @@ def onepol(p):
     
     return pol
 
+def onedip(p):
+    """Compute the dipole vector for a single water molecule.
 
-#g = np.array([[0, 0, 0],
-#              [0.961, 0, 0],
-#              [-0.23, 0.93, 0]])*1.2
+    No need to rotate the molecule because it assign a charge to each atom. The orientation
+    is captured by that atom's orientations.
 
+    Parameters:
+        p: (3, 3) array of atomic positions [O, H1, H2].
 
-#print(onepol(g))
+    Returns:
+        (3,) dipole vector in the lab frame.
+    """
+    vec_aim = np.array([1.0, 0, 0])
+    d1 = p[1] - p[0]
+    d2 = p[2] - p[0]
+    s1 = np.linalg.norm(d1)
+    s2 = np.linalg.norm(d2)
+    npos = np.array([[0, 0, 0], d1, d2])         
+    pr = np.sum(npos[1]*npos[2])/s1/s2
+    angle = np.arccos(np.round(pr, 8))*180/np.pi
+#    print('angled1', s1, 'd2', s2, 'd3', angle)
+#    print(p)
+    qH = 0.333059
+    qO = -2*qH
+    jb = -0.19008
+    ja = 0.0620229
+    jbb = -0.0627958
+    r0 = 0.959274
+    angle0 = 105.0387
+
+    dqH1 = jb * (s1 - r0) + ja * (angle - angle0) + jbb * (s2 - r0)
+    dqH2 = jb * (s2 - r0) + ja * (angle - angle0) + jbb * (s1 - r0)
+    dqO = -dqH1 - dqH2
+
+    current_qH1 = qH + dqH1 
+    current_qH2 = qH + dqH2
+    current_qO = qO + dqO
+#    print(current_qH1, current_qH2, current_qO)
+    dipole = p[0] * current_qO + p[1] * current_qH1 + p[2] * current_qH2
+    
+    return dipole
+
 
 
 def minima_search(efield1, efield2, bendfield1, bendfield2, min1, min2, min3, kstretch, kb1, kb2):
-    
+    """Find the equilibrium geometry of water under an applied electric field.
+
+    Minimizes the field-perturbed potential energy surface with respect to
+    the two OH stretches and the HOH angle.
+
+    Parameters:
+        efield1, efield2: Electric field projections along each OH bond.
+        bendfield1, bendfield2: Electric field components for bending.
+        min1, min2, min3: Initial guesses for stretch1, stretch2, and angle.
+        kstretch: Stretch-field coupling constant.
+        kb1, kb2: Linear and quadratic bending-field coupling constants.
+
+    Returns:
+        (3,) array of optimized [stretch1, stretch2, angle].
+    """
     def elambda(ass):
         a1, a2, a3 = ass
         evaluates = (ass - shifts)/shifts
@@ -139,21 +227,58 @@ def minima_search(efield1, efield2, bendfield1, bendfield2, min1, min2, min3, ks
     #print(efield1, efield2)
     return mini.x
 
-ran = [2.0]
-
-#f = minima_search(ran[0], ran[0], 1, 1, 100, 0.5, 0, 109)
-#print(f)
-
 def stretch_energy(stretch1, stretch2, efield1, efield2, kstretch):
+    """Compute the electric-field-induced perturbation to OH stretch energies.
+
+    Includes linear and quadratic coupling terms relative to the equilibrium
+    bond length of 0.958929 angstroms.
+
+    Parameters:
+        stretch1, stretch2: OH bond lengths in angstroms.
+        efield1, efield2: Electric field projections along each OH bond.
+        kstretch: Stretch-field coupling constant.
+
+    Returns:
+        Field-induced stretch energy perturbation (scalar).
+    """
     stretch1 = stretch1 - 0.958929
     stretch2 = stretch2 - 0.958929
     return   -kstretch*(efield1*stretch1 + efield2*stretch2) +  -kstretch*(efield1*stretch1**2 + efield2*stretch2**2)*0.79/0.37/2
 
 def angle_energy(angle, efield1, efield2, bendfield1, bendfield2, kb1, kb2):
+    """Compute the electric-field-induced perturbation to the HOH bending energy.
+
+    Includes linear and quadratic coupling terms relative to the equilibrium
+    angle of 104.3636 degrees.
+
+    Parameters:
+        angle: HOH bond angle in degrees.
+        efield1, efield2: Electric field projections along each OH bond.
+        bendfield1, bendfield2: Electric field components for bending.
+        kb1, kb2: Linear and quadratic bending-field coupling constants.
+
+    Returns:
+        Field-induced bending energy perturbation (scalar).
+    """
     angle = angle - 104.3636
     return   (bendfield1 + bendfield2)*(kb1*angle + kb2*angle**2)
 
 def construct_mat(Opos, H1pos, H2pos, efield1, efield2, bendfield1, bendfield2, kstretch, kb1, kb2):
+    """Build the 9x9 Cartesian Hessian matrix via finite differences.
+
+    Uses a four-point central difference scheme on the field-perturbed
+    potential energy surface.
+
+    Parameters:
+        Opos, H1pos, H2pos: (3,) arrays for O, H1, H2 Cartesian positions.
+        efield1, efield2: Electric field projections along each OH bond.
+        bendfield1, bendfield2: Electric field components for bending.
+        kstretch: Stretch-field coupling constant.
+        kb1, kb2: Linear and quadratic bending-field coupling constants.
+
+    Returns:
+        (9, 9) Hessian matrix of second derivatives.
+    """
     mat = []
     allvar = np.concatenate([Opos, H1pos, H2pos])
     de = 1e-4
@@ -231,6 +356,18 @@ def construct_mat(Opos, H1pos, H2pos, efield1, efield2, bendfield1, bendfield2, 
     return mat
 
 def reduced_mass(mat, m1, m2, m3):
+    """Mass-weight the Cartesian Hessian matrix.
+
+    Divides each element by sqrt(m_i * m_j) where m_i and m_j are the
+    atomic masses corresponding to the Cartesian coordinates.
+
+    Parameters:
+        mat: (9, 9) Cartesian Hessian matrix.
+        m1, m2, m3: Atomic masses for O, H1, H2 in amu.
+
+    Returns:
+        (9, 9) mass-weighted Hessian matrix.
+    """
     tmat = np.copy(mat)
     for i in range(9):
         for j in range(9):
@@ -255,7 +392,23 @@ def reduced_mass(mat, m1, m2, m3):
             
     return tmat
 
-def eigenvalues(field, kstretch, kb1, kb2,  bendfield):
+def eigenvalues(field, kstretch, kb1, kb2, bendfield):
+    """Compute harmonic vibrational frequencies and normal modes for one water molecule.
+
+    Finds the field-perturbed equilibrium geometry, constructs and mass-weights
+    the Hessian, then diagonalizes to obtain normal mode frequencies and vectors.
+
+    Parameters:
+        field: (2,) array of electric field projections [OH1, OH2].
+        kstretch: Stretch-field coupling constant.
+        kb1, kb2: Linear and quadratic bending-field coupling constants.
+        bendfield: (2,) array of bending field components [H1, H2].
+
+    Returns:
+        Tuple of (umasses, eig_contain, vectors, minpos) where umasses are
+        effective masses, eig_contain holds field values and frequencies,
+        vectors are the eigenvectors, and minpos is the equilibrium geometry.
+    """
     m1 = 15.999
     m2 = 1.007
     m3 = 1.007
@@ -263,7 +416,7 @@ def eigenvalues(field, kstretch, kb1, kb2,  bendfield):
     field1 = field[0]
     field2 = field[1]
     bendfield1 = bendfield[0]
-    bendfield2 = bendfield[0]
+    bendfield2 = bendfield[1]
 
     f = minima_search(field1, field2, bendfield1, bendfield2, 1, 1, 100, kstretch, kb1, kb2)
     stretch1, stretch2, thetastart = f
@@ -302,6 +455,14 @@ def eigenvalues(field, kstretch, kb1, kb2,  bendfield):
 
 
 def extract_coordinates(poses):
+    """Convert Cartesian water geometries to internal coordinates.
+
+    Parameters:
+        poses: (N, 3, 3) array of atomic positions [O, H1, H2].
+
+    Returns:
+        (N, 3) array of [stretch1, stretch2, angle_degrees].
+    """
     s1 = poses[:,1] - poses[:,0]
     s2 = poses[:,2] - poses[:,0]
     stretch1 = np.linalg.norm(s1, axis=1)
@@ -312,7 +473,16 @@ def extract_coordinates(poses):
 
 
 def basis3(n1, n2, n3, x, y, z, mul1, mul2, mul3):
-    
+    """Evaluate a 3D harmonic oscillator basis function (product of Hermite-Gaussians).
+
+    Parameters:
+        n1, n2, n3: Quantum numbers for each dimension.
+        x, y, z: Coordinate arrays at which to evaluate.
+        mul1, mul2, mul3: Width parameters for each dimension.
+
+    Returns:
+        Array of basis function values at the given grid points.
+    """
     f = ((mul1*mul2*mul3/np.pi**3)**(1/4))
     
     f = f/np.sqrt(2**n1*factorial(n1)*
@@ -331,8 +501,22 @@ def basis3(n1, n2, n3, x, y, z, mul1, mul2, mul3):
     return f
 
 
-def numerical_derivative(i, j, k, x, y, z, h12,  mul1, mul2, mul3):
-    
+def numerical_derivative(i, j, k, x, y, z, h12, mul1, mul2, mul3):
+    """Compute the kinetic energy operator acting on a 3D basis function via finite differences.
+
+    Uses central differences to approximate the second derivative along each
+    coordinate, scaled by hbar^2/2.
+
+    Parameters:
+        i, j, k: Quantum numbers for each dimension.
+        x, y, z: Coordinate arrays at which to evaluate.
+        h12: Product of hbar values (hbar1 * hbar2) for unit conversion.
+        mul1, mul2, mul3: Width parameters for each dimension.
+
+    Returns:
+        Tuple of (psi, d2dx, d2dy, d2dz) where psi is the basis function
+        and d2dx/y/z are the kinetic energy contributions along each axis.
+    """
     ddd = 1e-5
     psi = basis3(i, j, k, x, y, z, mul1, mul2, mul3)
 
