@@ -177,8 +177,8 @@ def onedip(p):
     r0 = 0.959274
     angle0 = 105.0387
 
-    dqH1 = jb * (s1 - r0) + ja * (angle - angle0) + jbb * (s2 - r0)
-    dqH2 = jb * (s2 - r0) + ja * (angle - angle0) + jbb * (s1 - r0)
+    dqH1 = jb * (s1 - r0) + ja * (angle - angle0)*np.pi/180 + jbb * (s2 - r0)
+    dqH2 = jb * (s2 - r0) + ja * (angle - angle0)*np.pi/180 + jbb * (s1 - r0)
     dqO = -dqH1 - dqH2
 
     current_qH1 = qH + dqH1 

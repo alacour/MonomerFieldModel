@@ -45,7 +45,7 @@ def compute_distribution(ii, kstretch, kb1, kb2, kbendstd, nrandos, end, leng):
     angles = angles[cond]
 
 
-    cond = (angles[:,0] > bound) * (angles[:,1] > bound) # Making Sure I only get waters with both  OH's bonded
+    cond = (angles[:,0] > bound) + (angles[:,1] > bound) # Making Sure I only get waters with both  OH's bonded - I edit here 2026
     projs = projs[cond]
     angles = angles[cond]
 
