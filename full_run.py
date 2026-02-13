@@ -1,54 +1,23 @@
 from necessary_functions import *
 
-def compute_distribution(ii, kstretch, kb1, kb2, kbendstd, nrandos, end, leng):
-    """Compute Raman spectral activities for a random subset of water molecules.
+#def compute_distribution(ii, kstretch, kb1, kb2, kbendstd, nrandos, end, leng):
+def compute_distribution(projs, angles, kstretch, kb1, kb2, kbendstd):
 
-    Loads MD snapshot data, selects water molecules within a distance slab from
-    the water-CCl4 interface, solves the anharmonic vibrational Schrodinger
-    equation on a 3D grid, and computes Raman transition polarizabilities.
+    """Compute Raman and IR spectral activities for a set of water molecules.
+
+    Solves the anharmonic vibrational Schrodinger equation on a 3D normal-mode
+    grid and computes Raman transition polarizabilities and IR transition dipoles.
 
     Parameters:
-        ii: Snapshot index into the loaded trajectory data.
+        projs: (N, 2) array of electric field projections along each OH bond (V/A).
+        angles: (N, 2) array of hydrogen bonding angles for each water.
         kstretch: Stretch-field coupling constant.
         kb1, kb2: Linear and quadratic bending-field coupling constants.
         kbendstd: Std dev of Gaussian multipliers applied to bending constants.
-        nrandos: Number of water molecules to randomly sample.
-        end: Lower bound of distance slab from the interface (angstroms).
-        leng: Width of the distance slab (angstroms).
 
     Returns:
         0 on completion. Results saved to .npy files (qfreqs, activities, etc.).
     """
-    hprojs = np.load('amoeba_pair_fields.npy', allow_pickle=True)  # Fields experienced by Hs
-    interface_dis = np.load('Odisses.npy', allow_pickle=True) # Distance to WCI
-    oilangles  = np.load('amoeba_angles.npy', allow_pickle=True)  # Hydrogen bonding angles
-
-
-    Oposes = oilangles[ii][:,0]  # Zposition of oxygens
-    projs = hprojs[ii] 
-    angles = oilangles[ii][:,1:]
-   
-    alli = interface_dis[ii]
-    projs = projs[Oposes > 0]  #  Only computed WCI distances for waters with Zpositions > 0
-    angles = angles[Oposes > 0]
-
-    lenf = len(projs)
-    randos = np.argsort(np.random.uniform(0, 1, lenf))[:nrandos] # Random subset
-    alli = alli[randos]
-    projs = projs[randos]
-    angles = angles[randos]
-
-    bound = 90
-
-    cond =  (alli > end) *  (alli < end + leng) # only getting waters within a certain distance from the WCI
-    projs = projs[cond]*14.4 #Converting to V/A
-    angles = angles[cond]
-
-
-    cond = (angles[:,0] > bound) + (angles[:,1] > bound) # Making Sure I only get waters with both  OH's bonded - I edit here 2026
-    projs = projs[cond]
-    angles = angles[cond]
-
 
     processors = 20
     theta0 = 109
@@ -67,9 +36,8 @@ def compute_distribution(ii, kstretch, kb1, kb2, kbendstd, nrandos, end, leng):
 
     fields = np.copy(projs)
     bendfields = np.copy(projs) #Identical to fields
-    muls = np.random.normal(1.0, kbendstd, nrandos)  # multipliers for bending energy
+    muls = np.random.normal(1.0, kbendstd, len(fields))  # multipliers for bending energy
     np.save('muls', muls) 
-    np.save('used', randos)
     eig_contain = []
     allumasses = []
     harvecs = []
