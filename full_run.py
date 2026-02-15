@@ -74,7 +74,9 @@ def compute_distribution(projs, angles, kstretch, kb1, kb2, kbendstd):
     vecadds = []
     egrids = []
     polgrids = []
-    dipgrids = []
+    onedipgrids = []
+    twodipgrids = []
+
 
     t =time()
     sleep(10)
@@ -126,19 +128,23 @@ def compute_distribution(projs, angles, kstretch, kb1, kb2, kbendstd):
         cgrid = extract_coordinates(posgrid)
         egrid = fastonebody(cgrid, field1, field2, bendfield1, bendfield2, kstretch, kb1*mul, kb2*mul)
         polgrid = []
-        dipgrid = []
+        onedipgrid = []
+        twodipgrid = []
+
 
         for pos in posgrid:
 #            print(pos)
             pol = onepol(pos)
             polgrid.append(pol)
             dip = onedip(pos)
-            dipgrid.append(dip)
+            onedipgrid.append(dip)
+            dip = twodip(pos, field1, field2)
+            twodipgrid.append(dip)
             
     #    print(j)
     #    print(time()-t)
 
-        return egrid, polgrid, dipgrid, umasses
+        return egrid, polgrid, onedipgrid, twodipgrid, umasses
 
     grids = Parallel(n_jobs=processors, verbose=10)(delayed(fill_grids)(i) for i in range(len(harvecs[:])))
     sleep(20)
@@ -146,8 +152,9 @@ def compute_distribution(projs, angles, kstretch, kb1, kb2, kbendstd):
     for i in range(len(grids)):
         egrids.append(grids[i][0])
         polgrids.append(grids[i][1])
-        dipgrids.append(grids[i][2])
-        allumasses.append(grids[i][3])
+        onedipgrids.append(grids[i][2])
+        twodipgrids.append(grids[i][3])
+        allumasses.append(grids[i][4])
 
     psis = []
     d2d2xs = []
@@ -240,11 +247,12 @@ def compute_distribution(projs, angles, kstretch, kb1, kb2, kbendstd):
 
     for it,vecs in enumerate(resvecs):
         polgrid = np.asarray(polgrids[it])
-        dipgrid = np.asarray(dipgrids[it])
+        onedipgrid = np.asarray(onedipgrids[it])
+        twodipgrid = np.asarray(twodipgrids[it])
 #        print(polgrid.shape)
 #        print("dip", dipgrid.shape)
         psi0 = np.sum(psis.T*vecs[:,0], axis=1).T
-        activity = [[],[],[]]
+        activity = [[],[],[], []]
         for i in range(4):
             psij = np.sum(psis.T*vecs[:,i+1], axis=1).T
             pol1 = np.average(polgrid.T*psi0*psij, axis=2).T*vol
@@ -255,10 +263,15 @@ def compute_distribution(projs, angles, kstretch, kb1, kb2, kbendstd):
             anti = np.sum(np.diag(np.matmul(beta, beta)))
             activity[0].append(sym)
             activity[1].append(anti)
-            dip1 = np.average(dipgrid.T*psi0*psij, axis=1).T*vol
+            dip1 = np.average(onedipgrid.T*psi0*psij, axis=1).T*vol
             #print(dip1.shape)
             dip1 = np.sum(dip1**2)
             activity[2].append(dip1)
+            dip2 = np.average(twodipgrid.T*psi0*psij, axis=1).T*vol
+            #print(dip1.shape)
+            dip2 = np.sum(dip2**2)
+            activity[3].append(dip2)
+
 #        print('activity', activity)  
         activities.append(np.concatenate(activity))
 

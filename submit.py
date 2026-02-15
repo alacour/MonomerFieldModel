@@ -2,7 +2,7 @@ import numpy as np
 
 from full_run import compute_distribution
 
-ii, nrandos, leng, end =  0, 3000, 10, 8.0
+ii, nrandos, leng, end =  0, 3000, 8.0, 2.0
 
 
 hprojs = np.load('amoeba_pair_fields.npy', allow_pickle=True)  # Fields experienced by Hs
