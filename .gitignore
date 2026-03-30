@@ -4,3 +4,4 @@ __pycache__/
 *.npy
 *.joblib
 *.npz
+!data/*
