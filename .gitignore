@@ -1,0 +1,6 @@
+Untitled.ipynb
+__pycache__/
+.ipynb_checkpoints/
+*.npy
+*.joblib
+*.npz

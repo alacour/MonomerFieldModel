@@ -1,8 +1,8 @@
 import numpy as np
 
-from full_run import compute_distribution
+from calculate import compute_distribution
 
-ii, nrandos, leng, end =  0, 3000, 8.0, 2.0
+ii, nrandos, leng, end =  0, 3000, 2.0, 2.0
 
 
 hprojs = np.load('amoeba_pair_fields.npy', allow_pickle=True)  # Fields experienced by Hs
@@ -36,6 +36,9 @@ projs = projs[cond]
 angles = angles[cond]
 
 
-compute_distribution(projs, angles,  0.41730000000000006, -0.00107, 2.996e-05, 0.37)
+projs = np.linspace(0.0, 4.0, 2)
+projs = np.array([projs]*2).T
+
+compute_distribution(projs, 'amoeba_params.json')#,  0.41730000000000006, -0.9*0.00107, 0.0*2.996e-05, 0.0*0.37)
 
 np.save('used', randos)
