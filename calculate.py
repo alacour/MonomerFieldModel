@@ -10,7 +10,7 @@ import numpy as np
 import os
 import json
 
-def compute_distribution(projs, param_file):#, k1, kb1, kb2, kbendstd):
+def compute_freqs(projs, param_file, seed=10):
 
     """Compute Raman and IR spectral activities for a set of water molecules.
 
@@ -19,13 +19,14 @@ def compute_distribution(projs, param_file):#, k1, kb1, kb2, kbendstd):
 
     Parameters:
         projs: (N, 2) array of electric field projections along each OH bond (V/A).
-        k1: Stretch-field coupling constant.
-        kb1, kb2: Linear and quadratic bending-field coupling constants.
-        kbendstd: Std dev of Gaussian multipliers applied to bending constants.
+        param_file: Contains paramters for vibrational calcualtion; different for spce/amoeba
+        seed: (1) Random seed for random multipliers in bending calculation
+
 
     Returns:
         0 on completion. Results saved to .npy files (qfreqs, activities, etc.).
     """
+
     with open(param_file) as f:
         params = json.load(f)
     k1, k2, kb1, kb2, kbstd  = params['k1'], params['k2'], params['kb1'], params['kb2'], params['kbstd']
@@ -39,8 +40,9 @@ def compute_distribution(projs, param_file):#, k1, kb1, kb2, kbendstd):
     hbar2 = hbar1 * 1.602*10**-19 * 6.022*10**26 * 10**20
     h2 = hbar2*2*np.pi
     h12 = hbar1 * hbar2
-    fields = np.copy(projs)
-    muls = np.random.normal(1.0, kbstd, len(fields))  # multipliers for bending energy
+    fields = -np.copy(projs) #Negative sign for convention for reporting fields projected along bond
+    np.random.seed(seed)
+    muls = np.random.normal(1.0, kbstd, len(fields))  #random multipliers for bending energy
     eig_contain = []
     allumasses = []
     harvecs = []
