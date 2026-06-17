@@ -1,0 +1,19 @@
+# Environment for raman-spectra-water.
+#
+# Create with:
+#   conda env create -f environment.yml
+#   conda activate raman-spectra-water
+#
+# Dependencies inferred from imports across the modules and example notebook.
+# Pins are loose; tighten if you need exact reproducibility.
+name: raman-spectra-water
+channels:
+  - conda-forge
+dependencies:
+  - python>=3.10
+  - numpy
+  - scipy
+  - scikit-learn   # KRR/ridge models loaded from data/*.joblib
+  - joblib         # model persistence + Parallel for the grid computation
+  - matplotlib     # plotting in the example notebook
+  - jupyter        # to run examples/examples.ipynb
