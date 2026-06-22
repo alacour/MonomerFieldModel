@@ -1,4 +1,4 @@
-# raman-spectra-water
+# MonomerFieldModel
 
 Compute Raman and IR vibrational spectra of water molecules from local electric
 fields. Given the electric field projected along each O–H bond (e.g. sampled from
@@ -71,6 +71,3 @@ and `eigenvalues`.
 - `polarizability_krr.joblib` — kernel ridge model for the polarizability.
 - `one_body_ridge.joblib` — ridge model for the one-body potential.
 - `one_body_shifts.npy` — one-body energy shifts.
-
-These are force-tracked in git (the `.gitignore` ignores `*.joblib`/`*.npy`
-everywhere except under `data/`).
