@@ -28,7 +28,7 @@ from model import compute_frequencies
 example_fields = np.zeros([10, 2])
 example_fields[:, 0] = np.linspace(0, -2, 10)
 
-compute_frequencies(example_fields, "amoeba_params.json", seed=10)
+compute_frequencies(example_fields, "params/amoeba_params.json", seed=10)
 # -> writes results.npz (freqs, activities, fields, eigenvalues)
 ```
 
@@ -40,9 +40,9 @@ field on the symmetric stretch.
 `compute_frequencies(projs, param_file, seed=10)`
 
 - `projs` — `(N, 2)` array of electric-field projections along the two O–H bonds (V/Å).
-- `param_file` — JSON file of model parameters. Two water models are provided:
-  - `amoeba_params.json` — for the AMOEBA polarizable model.
-  - `spce_params.json` — for the SPC/E model.
+- `param_file` — JSON file of model parameters. Two water models are provided in `params/`:
+  - `params/amoeba_params.json` — for the AMOEBA polarizable model.
+  - `params/spce_params.json` — for the SPC/E model.
 - `seed` — random seed for the bending-energy multipliers (default `10`).
 
 Results are written to `results.npz` containing `freqs`, `activities`, `fields`,
@@ -59,7 +59,7 @@ and `eigenvalues`.
 | `potentials.py` | Potential-energy surface (`fastonebody`). |
 | `basis.py` | Vibrational basis functions and numerical derivatives. |
 | `geometry.py` | Coordinate transforms between internal and Cartesian frames. |
-| `constants.py` | Physical constants and equilibrium geometry. |
+| `params/` | Model parameters: `constants.py` (physical constants and equilibrium geometry) and the per-model JSON files (`amoeba_params.json`, `spce_params.json`). |
 
 ## Data
 

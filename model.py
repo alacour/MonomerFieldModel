@@ -5,7 +5,7 @@ from dipole import onedip, twodip
 from normal_modes import *
 from geometry import *
 from basis import numerical_derivative
-from constants import R0, A0, MO, MH
+from params.constants import R0, A0, MO, MH
 import numpy as np
 import os
 import json
