@@ -5,3 +5,11 @@ __pycache__/
 *.joblib
 *.npz
 !data/*
+
+# Editor swap files
+*.swp
+
+# Personal scripts, kept local for now
+job.py
+data_loader.py
+pressjob.sh

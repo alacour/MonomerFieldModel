@@ -10,7 +10,7 @@ import numpy as np
 import os
 import json
 
-def compute_freqs(projs, param_file, seed=10):
+def compute_frequencies(projs, param_file, seed=10):
 
     """Compute Raman and IR spectral activities for a set of water molecules.
 
@@ -249,7 +249,6 @@ def compute_freqs(projs, param_file, seed=10):
         activities.append(np.concatenate(activity))
 
     activities = np.array(activities)
-    print(activities[0])
     np.savez('results.npz', freqs=freqs, 
                             activities=activities, 
                             fields=fields,

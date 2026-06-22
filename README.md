@@ -21,14 +21,14 @@ Requires Python ≥ 3.10 with NumPy, SciPy, scikit-learn, joblib, and matplotlib
 
 ```python
 import numpy as np
-from calculate import compute_freqs
+from model import compute_frequencies
 
 # (N, 2) array of electric-field projections along each O–H bond, in V/Å.
 # Normally these come from MD; here is a small illustrative range.
 example_fields = np.zeros([10, 2])
 example_fields[:, 0] = np.linspace(0, -2, 10)
 
-compute_freqs(example_fields, "amoeba_params.json", seed=10)
+compute_frequencies(example_fields, "amoeba_params.json", seed=10)
 # -> writes results.npz (freqs, activities, fields, eigenvalues)
 ```
 
@@ -37,7 +37,7 @@ field on the symmetric stretch.
 
 ### Parameters
 
-`compute_freqs(projs, param_file, seed=10)`
+`compute_frequencies(projs, param_file, seed=10)`
 
 - `projs` — `(N, 2)` array of electric-field projections along the two O–H bonds (V/Å).
 - `param_file` — JSON file of model parameters. Two water models are provided:
@@ -52,7 +52,7 @@ and `eigenvalues`.
 
 | File | Role |
 |------|------|
-| `calculate.py` | Main driver: `compute_freqs` orchestrates the full calculation. |
+| `model.py` | Main driver: `compute_frequencies` orchestrates the full calculation. |
 | `normal_modes.py` | Harmonic normal-mode analysis and eigenvalue solver. |
 | `polarizability.py` | Molecular polarizability model (`onepol`). |
 | `dipole.py` | One-body and two-body dipole models (`onedip`, `twodip`). |
@@ -60,9 +60,6 @@ and `eigenvalues`.
 | `basis.py` | Vibrational basis functions and numerical derivatives. |
 | `geometry.py` | Coordinate transforms between internal and Cartesian frames. |
 | `constants.py` | Physical constants and equilibrium geometry. |
-| `data_loader.py` | Helpers for loading/sorting saved spectra. |
-| `job.py` | Batch/job submission helper. |
-| `pressjob.sh` | Cluster submission script. |
 
 ## Data
 
