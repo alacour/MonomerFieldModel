@@ -25,8 +25,8 @@ from calculate import compute_freqs
 
 # (N, 2) array of electric-field projections along each O–H bond, in V/Å.
 # Normally these come from MD; here is a small illustrative range.
-example_fields = np.zeros((10, 2))
-example_fields[:, 0] = np.linspace(-0.05, 0.05, 10)
+example_fields = np.zeros([10, 2])
+example_fields[:, 0] = np.linspace(0, -2, 10)
 
 compute_freqs(example_fields, "amoeba_params.json", seed=10)
 # -> writes results.npz (freqs, activities, fields, eigenvalues)
